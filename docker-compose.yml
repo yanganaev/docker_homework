@@ -1,0 +1,59 @@
+services:
+  database:
+    image: postgres:14-bullseye
+    restart: unless-stopped
+    volumes:
+      - data:/var/lib/postgresql/data
+    environment:
+      # User and password are taken from the host environment.
+      # Use the following shell commands:
+      #   export POSTGRES_USER=username
+      #   export POSTGRES_PASSWORD=mysecretpass
+      # before running docker-compose up
+      POSTGRES_USER: 
+      POSTGRES_PASSWORD:
+    networks:
+      - private
+    healthcheck:
+      test: pg_isready -U ${POSTGRES_USER}
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./lib_catalog
+    restart: unless-stopped
+    ports:
+      - 8000:8000
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - private
+    healthcheck:
+      test: curl --fail http://localhost:8000/api/v1/lib/bbk/ || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - 3000:3000
+    depends_on:
+      - backend
+    networks:
+      - public
+    healthcheck:
+      test: curl --fail http://localhost:3000 || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  data:
+
+networks:
+  private:
+  public:
